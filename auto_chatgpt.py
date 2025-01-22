@@ -1,9 +1,12 @@
 from selenium import webdriver
+#from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+#from webdriver_manager.chrome import ChromeDriverManager
+#pip install webdriver_manager
 import undetected_chromedriver as uc
 import configparser
 import json
@@ -62,7 +65,7 @@ class AutoChatGPT:
         self.chrome_options = webdriver.ChromeOptions()
         if self.headless:
             self.chrome_options.add_argument('--headless') # must options for Google Colab
-        self.chrome_options.add_argument("--remote-debugging-address=0.0.0.0")
+        #self.chrome_options.add_argument("--remote-debugging-address=0.0.0.0")
         self.chrome_options.add_argument('--no-sandbox') # Vô hiệu hóa chế độ "sandbox" của Chrome
         self.chrome_options.add_argument('--disable-dev-shm-usage') # Sử dụng đĩa thay vì bộ nhớ chia sẻ /dev/shm (shared memory)
         self.chrome_options.add_argument("--disable-extensions") # Vô hiệu hóa tất cả các tiện ích mở rộng (extensions) đã cài đặt trong Chrome
@@ -70,6 +73,8 @@ class AutoChatGPT:
         self.chrome_options.add_argument('--window-size=1920x1080')
         self.chrome_options.add_argument(f"user-agent={self.userAgent}")
 
+        #service = Service(ChromeDriverManager().install())
+        #self.driver = Chrome(service=service, options=self.chrome_options)
         self.driver = Chrome(options=self.chrome_options)
         self.driver.maximize_window()
         self.driver.get("https://chatgpt.com/")
@@ -151,15 +156,15 @@ class AutoChatGPT:
 
                 # Wait the voice button to appear -> the response is finished
                 try:
-                    send_button = WebDriverWait(self.driver, self.wait_time).until(
+                    send_button = WebDriverWait(self.driver, self.timeout).until(
                         EC.element_to_be_clickable((
                             By.XPATH,
                             '//button[@data-testid="composer-speech-button" and @aria-label="Start voice mode"]'
                         ))
                     )
-                except Exception as e:
+                except TimeoutError as e:
                     # Wait too long, stop generating
-                    print(e)
+                    print("TimeoutError...")
                     stop_button.click()
 
                 # Wait for the thumbups to increase -> the response is finished
@@ -170,7 +175,7 @@ class AutoChatGPT:
                     time.sleep(1)
 
                 # Get the last response
-                time.sleep(2)
+                time.sleep(self.unexpected_wait_time)
                 last_answer = WebDriverWait(self.driver, self.wait_time).until(
                     EC.presence_of_all_elements_located((
                         By.CSS_SELECTOR,
