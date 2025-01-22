@@ -62,6 +62,7 @@ class AutoChatGPT:
         self.chrome_options = webdriver.ChromeOptions()
         if self.headless:
             self.chrome_options.add_argument('--headless') # must options for Google Colab
+        self.chrome_options.add_argument("--remote-debugging-address=0.0.0.0")
         self.chrome_options.add_argument('--no-sandbox') # Vô hiệu hóa chế độ "sandbox" của Chrome
         self.chrome_options.add_argument('--disable-dev-shm-usage') # Sử dụng đĩa thay vì bộ nhớ chia sẻ /dev/shm (shared memory)
         self.chrome_options.add_argument("--disable-extensions") # Vô hiệu hóa tất cả các tiện ích mở rộng (extensions) đã cài đặt trong Chrome
