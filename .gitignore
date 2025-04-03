@@ -2,3 +2,6 @@
 __pycache__
 config.ini
 cookies.pkl
+keys
+page_content.html
+screenshot.png
