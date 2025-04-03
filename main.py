@@ -35,6 +35,15 @@ def update_item(item_id: int, item: Item):
     return {"item_name": item.name, "item_id": item_id}
 
 
+@app.put("/screenshot")
+def take_screenshot():
+    try:
+        auto_chat_gpt.take_screenshot()
+        return {"message": "Screenshot taken successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @app.post("/chat")
 def chat(request: ChatRequest):
     try:

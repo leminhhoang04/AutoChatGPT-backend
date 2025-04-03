@@ -1,10 +1,14 @@
 from selenium import webdriver
+#from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+#from webdriver_manager.chrome import ChromeDriverManager
+#pip install webdriver_manager
 import undetected_chromedriver as uc
+from selenium_stealth import stealth
 import configparser
 import json
 import time
@@ -52,6 +56,7 @@ class AutoChatGPT:
         self.userAgent = config['default']['userAgent']
         self.password = config['default']['password']
         self.headless = config.getboolean('default', 'headless', fallback=False)
+        self.chrome_version = config.getint('default', 'chromeVersion')
         self.cookies_path = config['driver']['cookies_path']
         self.unexpected_wait_time = config.getint('context', 'unexpected_wait_time')
         self.wait_time = config.getint('context', 'wait_time')
@@ -61,16 +66,31 @@ class AutoChatGPT:
     def access_website(self):
         self.chrome_options = webdriver.ChromeOptions()
         if self.headless:
-            self.chrome_options.add_argument('--headless') # must options for Google Colab
-        self.chrome_options.add_argument("--remote-debugging-address=0.0.0.0")
+            self.chrome_options.add_argument('--headless=new') # must options for Google Colab
+        #self.chrome_options.add_argument("--remote-debugging-address=0.0.0.0")
         self.chrome_options.add_argument('--no-sandbox') # Vô hiệu hóa chế độ "sandbox" của Chrome
         self.chrome_options.add_argument('--disable-dev-shm-usage') # Sử dụng đĩa thay vì bộ nhớ chia sẻ /dev/shm (shared memory)
         self.chrome_options.add_argument("--disable-extensions") # Vô hiệu hóa tất cả các tiện ích mở rộng (extensions) đã cài đặt trong Chrome
         self.chrome_options.add_argument("--disable-gpu")
         self.chrome_options.add_argument('--window-size=1920x1080')
         self.chrome_options.add_argument(f"user-agent={self.userAgent}")
-
+        
+        #service = Service(ChromeDriverManager().install())
+        #self.driver = Chrome(service=service, options=self.chrome_options)
+        #self.driver = Chrome(options=self.chrome_options, version_main=self.chrome_version)
         self.driver = Chrome(options=self.chrome_options)
+
+        # 02/Apr/2025, vứt cái này thì chạy headless=False được :) headless=True vẫn bị infinite verify loop
+        stealth(self.driver,
+            user_agent=self.userAgent,
+            languages=["en-US", "en"],
+            vendor="Google Inc.",
+            platform="Win64",
+            webgl_vendor="Intel Inc.",
+            renderer="Intel Iris OpenGL Engine",
+            fix_hairline=True,
+        )
+
         self.driver.maximize_window()
         self.driver.get("https://chatgpt.com/")
 
@@ -151,15 +171,15 @@ class AutoChatGPT:
 
                 # Wait the voice button to appear -> the response is finished
                 try:
-                    send_button = WebDriverWait(self.driver, self.wait_time).until(
+                    send_button = WebDriverWait(self.driver, self.timeout).until(
                         EC.element_to_be_clickable((
                             By.XPATH,
                             '//button[@data-testid="composer-speech-button" and @aria-label="Start voice mode"]'
                         ))
                     )
-                except Exception as e:
+                except TimeoutError as e:
                     # Wait too long, stop generating
-                    print(e)
+                    print("TimeoutError...")
                     stop_button.click()
 
                 # Wait for the thumbups to increase -> the response is finished
@@ -170,7 +190,15 @@ class AutoChatGPT:
                     time.sleep(1)
 
                 # Get the last response
-                time.sleep(2)
+                time.sleep(self.unexpected_wait_time)
+
+                self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);") # Scroll to the bottom
+                time.sleep(1)
+                with open("page_content.html", "w", encoding="utf-8") as file:
+                    file.write(self.driver.page_source)
+                self.driver.save_screenshot("screenshot.png")
+                print(f"Screenshot saved to {"screenshot.png"}")
+
                 last_answer = WebDriverWait(self.driver, self.wait_time).until(
                     EC.presence_of_all_elements_located((
                         By.CSS_SELECTOR,
@@ -195,6 +223,12 @@ class AutoChatGPT:
             else:
                 return last_answer.text
         return None
+    
+    def take_screenshot(self, filename: str = "screenshot.png"):
+        with open("page_content.html", "w", encoding="utf-8") as file:
+            file.write(self.driver.page_source)
+        self.driver.save_screenshot("screenshot.png")
+        print(f"Screenshot saved to {"screenshot.png"}")
 
     def __del__(self):
         self.driver.quit()
