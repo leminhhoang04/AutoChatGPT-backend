@@ -1,7 +1,7 @@
 .venv
 __pycache__
 config.ini
-cookies.pkl
+cookies*.pkl
 keys
 page_content.html
 screenshot.png

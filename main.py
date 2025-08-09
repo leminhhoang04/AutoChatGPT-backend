@@ -1,6 +1,6 @@
 from typing import Union
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from pydantic import BaseModel
 
 from auto_chatgpt import AutoChatGPT
@@ -49,5 +49,23 @@ def chat(request: ChatRequest):
     try:
         response = auto_chat_gpt.send_request(request.question, request.password)
         return {"answer": response}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+
+@app.post("/chat_w_image")
+async def chat_w_image(
+    question: str = Form(...),
+    password: str = Form(...),
+    file: UploadFile = File(..., description="Support .png file")
+):
+    try:
+        request = ChatRequest(question=question, password=password)
+        file_content_bytes = await file.read()
+
+        await auto_chat_gpt.upload_file_to_chat(file_content_bytes, request.password)
+        response = auto_chat_gpt.send_request(request.question, request.password)
+        return {"answer": response}
+
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

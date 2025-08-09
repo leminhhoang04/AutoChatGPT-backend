@@ -3,6 +3,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webelement import WebElement
+from selenium.webdriver.remote.file_detector import LocalFileDetector
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 #from webdriver_manager.chrome import ChromeDriverManager
@@ -12,6 +13,8 @@ from selenium_stealth import stealth
 import configparser
 import json
 import time
+import os
+import tempfile
 
 
 # Make a new class from uc.Chrome and redefine quit() function to suppress OSError
@@ -77,8 +80,10 @@ class AutoChatGPT:
         
         #service = Service(ChromeDriverManager().install())
         #self.driver = Chrome(service=service, options=self.chrome_options)
-        #self.driver = Chrome(options=self.chrome_options, version_main=self.chrome_version)
-        self.driver = Chrome(options=self.chrome_options)
+        self.driver = Chrome(options=self.chrome_options, version_main=self.chrome_version)
+        #self.driver = Chrome(options=self.chrome_options)
+        self.driver.file_detector = LocalFileDetector()
+
 
         # 02/Apr/2025, vứt cái này thì chạy headless=False được :) headless=True vẫn bị infinite verify loop
         stealth(self.driver,
@@ -224,6 +229,37 @@ class AutoChatGPT:
                 return last_answer.text
         return None
     
+    async def upload_file_to_chat(self, file_content_bytes: bytes, password: str = ""):
+        if password != self.password:
+            raise ValueError("Invalid password")
+
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_file:
+                tmp_file.write(file_content_bytes)
+                tmp_file_path = tmp_file.name
+                print(f"Written to {tmp_file_path}")
+
+            input_file_element: WebElement = WebDriverWait(self.driver, self.wait_time).until(
+                EC.presence_of_element_located((
+                    By.XPATH,
+                    '//div[@class="hidden"]/input[@type="file"]'
+                ))
+            )
+            input_file_element.send_keys(tmp_file_path)
+
+            # Wait for uploading (send_button is clickable)
+            WebDriverWait(self.driver, self.timeout, poll_frequency=1).until(
+                EC.element_to_be_clickable((
+                    By.XPATH,
+                    '//button[@aria-label="Send prompt" and @data-testid="send-button"]'
+                ))
+            )
+
+        finally:
+            if os.path.exists(tmp_file_path):
+                os.remove(tmp_file_path)
+                print(f"Removed {tmp_file_path}")
+
     def take_screenshot(self, filename: str = "screenshot.png"):
         with open("page_content.html", "w", encoding="utf-8") as file:
             file.write(self.driver.page_source)
